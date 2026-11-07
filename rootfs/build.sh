@@ -19,6 +19,18 @@ wget -P ../kernel "$BOOT_NO_MODEM_URL"
 wget -P ../kernel "$BOOT_NO_MODEM_OC_URL"
 wget -P ../kernel "$K_IMAGE_DEB_URL"
 
+# Patch boot*.img cmdline PARTUUID to match stock UFI003 userdata (598664a9-7976-e692-1cdd-010c5d49b568)
+python3 - <<'PYEOF'
+import glob
+for p in glob.glob("../kernel/boot*.img"):
+    data = bytearray(open(p, "rb").read())
+    old_cmd = b"earlycon root=PARTUUID=a7ab80e8-e9d1-e8cd-f157-93f69b1d141e console=ttyMSM0,115200 no_framebuffer=true rw"
+    new_cmd = b"earlycon root=PARTUUID=598664a9-7976-e692-1cdd-010c5d49b568 rootwait console=ttyMSM0,115200 no_framebuffer=true rw"
+    if old_cmd in data[:1024]:
+        data[64:576] = new_cmd.ljust(512, b"\x00")
+        open(p, "wb").write(data)
+PYEOF
+
 mkdir debian build
 debootstrap --arch=arm64 --foreign $DIST debian https://deb.debian.org/debian/
 LANG=C LANGUAGE=C LC_ALL=C chroot debian /debootstrap/debootstrap --second-stage
